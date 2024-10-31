@@ -1,0 +1,138 @@
+#Reprodutibility - Design of medical image enhancement algorithm based on Python
+
+# Import needed libs
+import cv2
+import numpy as np
+import math
+import matplotlib.pyplot as plt
+from scipy.signal import correlate2d
+
+# Create Drive
+from google.colab import drive
+drive.mount('/content/drive')
+
+# Load data from Drive 
+img1 = cv2.imread('/content/drive/MyDrive/Imagens/imagem1.jpg')
+img2 = cv2.imread('/content/drive/MyDrive/Imagens/imagem2.jpg')
+img3 = cv2.imread('/content/drive/MyDrive/Imagens/imagem3.jpg')
+img4 = cv2.imread('/content/drive/MyDrive/Imagens/imagem4.jpg')
+img5 = cv2.imread('/content/drive/MyDrive/Imagens/imagem5.jpg')
+
+# Image to transform
+image_to_transform = img5
+
+# First Order Transformation (Robert's Gradient)
+def robert_gradient(img):
+  Gx = np.array([[-1, 0], [0, 1]])
+  Gy = np.array([[0, -1], [1, 0]])
+
+  output_robert = np.zeros(img.shape)
+
+  img_conv_Gx = cv2.filter2D(img, cv2.CV_64F, Gx)
+  img_conv_Gy = cv2.filter2D(img, cv2.CV_64F, Gy)
+
+  output_robert = np.uint8(np.sqrt(np.square(img_conv_Gx) + np.square(img_conv_Gy)))
+
+  return output_robert
+
+plt.figure(figsize=(20, 10))
+plt.subplot(1, 2, 1)
+plt.title('Imagem Original')
+plt.imshow(image_to_transform, cmap='gray')
+plt.subplot(1, 2, 2)
+plt.title('Detecção de Bordas - Roberts')
+plt.imshow(robert_gradient(image_to_transform), cmap='gray')
+plt.show()
+
+
+# Second Order Transformation (Canny Edge Detection)
+def canny_edge_detection(img):
+    t_lower = 50
+    t_upper = 150
+
+    edge = cv2.Canny(img, t_lower, t_upper)
+    edge_colored = cv2.cvtColor(edge, cv2.COLOR_GRAY2BGR)
+
+    return edge_colored
+
+plt.figure(figsize=(20, 10))
+plt.subplot(1, 2, 1)
+plt.title('Imagem Original')
+plt.imshow(image_to_transform, cmap='gray')
+plt.subplot(1, 2, 2)
+plt.title('Detecção de Bordas - Canny')
+plt.imshow(canny_edge_detection(image_to_transform), cmap='gray')
+plt.show()
+
+# Linear Combination
+def linear_combination(original_img, robert_img, canny_img):
+    alpha = 1/3
+    beta = 1/3
+    gamma = 1/3
+
+    output = alpha * original_img + beta * robert_img + gamma * canny_img
+
+    return output
+
+
+# Gray Scale Transformation
+def gray_scale(img, a, b, a_prime, b_prime):
+  img = img.astype(np.float32)
+  img_transform = a_prime + ((b_prime - a_prime) / (b - a)) * (img - a)
+  img_transform = np.clip(img_transform, 0, 255)
+  img_transform = img_transform.astype(np.uint8)
+
+  return img_transform
+
+# Show Histogram
+def show_histogram(original, output):
+    original_gray = cv2.cvtColor(original, cv2.COLOR_BGR2GRAY);
+    output_gray = cv2.cvtColor(output, cv2.COLOR_BGR2GRAY);
+
+    original_hist = cv2.calcHist([original_gray], [0], None, [256], [0, 256])
+    output_hist = cv2.calcHist([output_gray], [0], None, [256], [0, 256])
+
+    plt.figure(figsize=(20, 10))
+    plt.subplot(1, 2, 1)
+    plt.plot(original_hist, color='black')
+    plt.title('Histogram of Original Image')
+    plt.xlabel('Pixel Intensity')
+    plt.ylabel('Frequency')
+    plt.grid(True)
+    plt.subplot(1, 2, 2)
+    plt.plot(output_hist, color='black')
+    plt.title('Histogram of Output Image')
+    plt.xlabel('Pixel Intensity')
+    plt.ylabel('Frequency')
+    plt.grid(True)
+
+    # Show the plots
+    plt.tight_layout()
+    plt.show()
+
+
+# Show resulting image
+
+output_robert = robert_gradient(image_to_transform)
+output_canny = canny_edge_detection(image_to_transform)
+output_linear = linear_combination(image_to_transform, output_robert, output_canny)
+
+a = np.min(image_to_transform)
+b = np.max(image_to_transform)
+
+# Imprimir a faixa de cinza
+print("Faixa de cinza da imagem:", a, "-", b)
+
+output = gray_scale(output_linear, a, b, a, 2*b)
+
+plt.figure(figsize=(20, 10))
+plt.subplot(1, 2, 1)
+plt.title('Imagem Original')
+plt.imshow(image_to_transform, cmap='gray')
+plt.subplot(1, 2, 2)
+plt.title('Imagem final')
+plt.imshow(output, cmap='gray')
+plt.show()
+
+show_histogram(image_to_transform, output)
+
